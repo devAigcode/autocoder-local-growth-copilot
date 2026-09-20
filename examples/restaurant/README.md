@@ -4,6 +4,9 @@ Juniper Brick is a fictional farm-to-table restaurant website generated to exerc
 
 - Live demonstration: https://juniperbrick.autocoder.store
 - Business context: [`juniper-brick-profile.json`](juniper-brick-profile.json)
+- Before report: [`reports/before.md`](reports/before.md)
+- Before/after comparison: [`COMPARISON.md`](COMPARISON.md)
+- AutoCoder optimization prompt: [`AUTOCODER_OPTIMIZATION_PROMPT.md`](AUTOCODER_OPTIMIZATION_PROMPT.md)
 - Primary conversion goal: booking
 - Location: Buffalo, New York
 

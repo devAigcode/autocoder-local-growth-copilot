@@ -1,0 +1,40 @@
+{
+  "case": "Juniper Brick",
+  "sourceUrl": "https://juniperbrick.autocoder.store/",
+  "auditMode": "browser",
+  "toolVersion": "0.1.1",
+  "scores": {
+    "discoverability": 50,
+    "localRelevance": 75,
+    "conversionReadiness": 65
+  },
+  "coverage": {
+    "discoverability": 100,
+    "localRelevance": 100,
+    "conversionReadiness": 100
+  },
+  "topActionIds": [
+    "conversion.primary-action",
+    "discoverability.title",
+    "local.schema"
+  ],
+  "findingStatuses": {
+    "discoverability.title": "warning",
+    "discoverability.meta-description": "fail",
+    "discoverability.primary-heading": "pass",
+    "discoverability.indexability": "pass",
+    "discoverability.canonical": "fail",
+    "discoverability.robots": "fail",
+    "discoverability.sitemap": "fail",
+    "local.schema": "fail",
+    "local.service": "pass",
+    "local.location": "pass",
+    "local.phone": "pass",
+    "local.hours": "pass",
+    "conversion.primary-action": "fail",
+    "conversion.path": "pass",
+    "conversion.mobile-viewport": "pass",
+    "conversion.value-proposition": "pass",
+    "conversion.trust": "warning"
+  }
+}

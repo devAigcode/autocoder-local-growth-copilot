@@ -1,7 +1,8 @@
 import { safeFetchText, normalizeUrl } from './fetch.js';
-import { buildSnapshot, evaluateLaunchCheck, scoreFindings, selectTopActions } from './rules.js';
+import { detectClientRenderedShell } from './html.js';
+import { buildSnapshot, evaluateLaunchCheck, scoreCoverage, scoreFindings, selectTopActions } from './rules.js';
 
-const TOOL_VERSION = '0.1.0';
+const TOOL_VERSION = '0.1.1';
 const RULESET_VERSION = '2026-09-20';
 
 function cleanContext(context = {}) {
@@ -46,21 +47,57 @@ export async function auditSite(inputUrl, options = {}) {
     throw new Error(`Homepage returned HTTP ${homepage.status}: ${homepage.url}`);
   }
 
-  const finalUrl = new URL(homepage.url);
+  const initialShell = detectClientRenderedShell(homepage.body);
+  let analysisHtml = homepage.body;
+  let analysisUrl = homepage.url;
+  let rendering;
+
+  if (options.renderer) {
+    const renderedPage = await options.renderer(homepage.url);
+    analysisHtml = renderedPage.html;
+    analysisUrl = renderedPage.url ?? homepage.url;
+    const renderedShell = detectClientRenderedShell(analysisHtml);
+    rendering = {
+      initialShellDetected: initialShell.detected,
+      mode: 'browser',
+      status: renderedShell.detected ? 'incomplete' : 'rendered',
+      evidence: renderedShell.detected
+        ? `Browser rendering completed, but the page still appears to be an empty application shell. ${renderedShell.evidence}`
+        : `Browser rendering completed with ${renderedShell.visibleTextLength} visible-text characters.`
+    };
+  } else if (initialShell.detected) {
+    rendering = {
+      initialShellDetected: true,
+      mode: 'static',
+      status: 'required',
+      evidence: `${initialShell.evidence} Run the audit with --render to inspect the rendered page.`
+    };
+  } else {
+    rendering = {
+      initialShellDetected: false,
+      mode: 'static',
+      status: 'not-required',
+      evidence: initialShell.evidence
+    };
+  }
+
+  const finalUrl = new URL(analysisUrl);
   const robotsUrl = new URL('/robots.txt', finalUrl);
   const robots = await inspectOptionalResource(robotsUrl, fetcher);
   const sitemapUrl = sitemapUrlFromRobots(robots, finalUrl);
   const sitemap = await inspectOptionalResource(sitemapUrl, fetcher);
   const context = cleanContext(options.context);
   const snapshot = buildSnapshot({
-    html: homepage.body,
-    homepage,
+    html: analysisHtml,
+    homepage: { ...homepage, body: analysisHtml, url: finalUrl.toString() },
     robots,
     sitemap,
-    context
+    context,
+    rendering
   });
   const findings = evaluateLaunchCheck(snapshot);
   const scores = scoreFindings(findings);
+  const coverage = scoreCoverage(findings);
   const topActions = selectTopActions(findings);
   const contentType = homepage.headers?.['content-type'] ?? '';
   const limitations = [
@@ -71,6 +108,13 @@ export async function auditSite(inputUrl, options = {}) {
 
   if (contentType && !/html|xhtml/i.test(contentType)) {
     limitations.push(`The homepage content type was “${contentType}”, so HTML findings may be incomplete.`);
+  }
+
+  if (rendering.status === 'required') {
+    limitations.push('The initial HTML is a client-rendered shell. Body-dependent checks were marked not applicable until browser rendering is enabled.');
+  }
+  if (rendering.status === 'incomplete') {
+    limitations.push('Browser rendering did not produce enough visible content. Body-dependent checks were marked not applicable.');
   }
 
   return {
@@ -87,11 +131,14 @@ export async function auditSite(inputUrl, options = {}) {
       context
     },
     inspectedResources: [homepage, robots, sitemap].map((resource) => ({
+      contentType: resource.headers?.['content-type'],
       error: resource.error,
       status: resource.status,
       url: resource.url
     })),
+    rendering,
     scores,
+    coverage,
     topActions,
     findings,
     limitations

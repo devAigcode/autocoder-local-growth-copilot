@@ -155,7 +155,7 @@ function goalPhrases(goal) {
   return goal ? phrases[goal] : Object.values(phrases).flat();
 }
 
-export function buildSnapshot({ html, homepage, robots, sitemap, context = {} }) {
+export function buildSnapshot({ html, homepage, robots, sitemap, context = {}, rendering = {} }) {
   const titles = findTagContents(html, 'title');
   const headings = findTagContents(html, 'h1');
   const jsonLd = getJsonLd(html);
@@ -171,6 +171,7 @@ export function buildSnapshot({ html, homepage, robots, sitemap, context = {} })
     jsonLd,
     metaDescription: getMetaContent(html, 'name', 'description'),
     metaRobots: getMetaContent(html, 'name', 'robots'),
+    rendering,
     robots,
     schemaTypes: collectSchemaTypes(jsonLd),
     sitemap,
@@ -290,39 +291,60 @@ export function evaluateLaunchCheck(snapshot) {
     url
   }));
 
-  const blocksAll = robots?.status === 200 && /user-agent\s*:\s*\*[\s\S]*?disallow\s*:\s*\/(?:\s|$)/i.test(robots.body);
+  const robotsContentType = robots?.headers?.['content-type'] ?? '';
+  const robotsLooksHtml = /html/i.test(robotsContentType) || /^\s*(?:<!doctype\s+html|<html\b)/i.test(robots?.body ?? '');
+  const validRobots = robots?.status === 200
+    && !robotsLooksHtml
+    && /^\s*(?:user-agent|sitemap)\s*:/im.test(robots.body);
+  const blocksAll = validRobots && /user-agent\s*:\s*\*[\s\S]*?disallow\s*:\s*\/(?:\s|$)/i.test(robots.body);
+  const robotsStatus = blocksAll ? 'fail' : validRobots ? 'pass' : robots?.status === 200 ? 'fail' : 'warning';
   findings.push(finding({
     id: 'discoverability.robots',
     category: 'discoverability',
     title: 'Crawler access',
-    status: blocksAll ? 'fail' : robots?.status === 200 ? 'pass' : 'warning',
-    severity: blocksAll ? 'critical' : 'low',
-    weight: blocksAll ? 5 : 1,
+    status: robotsStatus,
+    severity: blocksAll ? 'critical' : validRobots ? 'low' : 'medium',
+    weight: blocksAll ? 5 : validRobots ? 1 : 2,
     effort: 1,
     evidence: blocksAll
       ? `${robots.url} appears to disallow all crawling.`
-      : robots?.status === 200
-        ? `robots.txt returned HTTP ${robots.status}.`
+      : validRobots
+        ? `robots.txt returned HTTP ${robots.status} with valid crawler directives.`
+        : robots?.status === 200 && robotsLooksHtml
+          ? `robots.txt returned HTML (${robotsContentType || 'unknown content type'}) instead of crawler directives.`
+          : robots?.status === 200
+            ? 'robots.txt returned HTTP 200 but did not contain a User-agent or Sitemap directive.'
         : robots?.error ?? `robots.txt returned HTTP ${robots?.status ?? 'unknown'}.`,
     explanation: blocksAll
       ? 'A site-wide disallow rule can prevent search engines from crawling public pages.'
-      : 'A robots file can communicate crawl preferences and sitemap locations.',
+      : validRobots
+        ? 'The robots file contains recognizable crawler directives.'
+        : 'A valid robots file must contain crawler directives rather than an application fallback page.',
     recommendation: blocksAll
       ? 'Remove the site-wide disallow rule before launch if the website should be public.'
-      : 'Add a simple robots.txt file and declare the sitemap location.',
+      : 'Serve a plain-text robots.txt file with a User-agent directive and the sitemap location.',
     url: robots?.url
   }));
 
+  const sitemapContentType = sitemap?.headers?.['content-type'] ?? '';
+  const sitemapLooksHtml = /html/i.test(sitemapContentType) || /^\s*(?:<!doctype\s+html|<html\b)/i.test(sitemap?.body ?? '');
+  const validSitemap = sitemap?.status === 200
+    && !sitemapLooksHtml
+    && /<(?:urlset|sitemapindex)\b/i.test(sitemap.body);
   findings.push(finding({
     id: 'discoverability.sitemap',
     category: 'discoverability',
     title: 'XML sitemap',
-    status: sitemap?.status === 200 && /<(?:urlset|sitemapindex)\b/i.test(sitemap.body) ? 'pass' : 'warning',
-    severity: 'low',
-    weight: 1,
+    status: validSitemap ? 'pass' : sitemap?.status === 200 ? 'fail' : 'warning',
+    severity: sitemap?.status === 200 && !validSitemap ? 'medium' : 'low',
+    weight: sitemap?.status === 200 && !validSitemap ? 2 : 1,
     effort: 1,
-    evidence: sitemap?.status === 200
-      ? `Sitemap candidate returned HTTP 200 at ${sitemap.url}.`
+    evidence: validSitemap
+      ? `A valid XML sitemap was found at ${sitemap.url}.`
+      : sitemap?.status === 200 && sitemapLooksHtml
+        ? `The sitemap URL returned HTML (${sitemapContentType || 'unknown content type'}) instead of an XML sitemap.`
+        : sitemap?.status === 200
+          ? `The sitemap URL returned HTTP 200 but no urlset or sitemapindex element was found.`
       : sitemap?.error ?? `Sitemap candidate returned HTTP ${sitemap?.status ?? 'unknown'}.`,
     explanation: 'A sitemap helps search systems discover important URLs consistently.',
     recommendation: 'Publish a valid XML sitemap and reference it from robots.txt.',
@@ -486,6 +508,31 @@ export function evaluateLaunchCheck(snapshot) {
     url
   }));
 
+  if (snapshot.rendering?.status === 'required' || snapshot.rendering?.status === 'incomplete') {
+    const renderedContentRuleIds = new Set([
+      'discoverability.primary-heading',
+      'local.schema',
+      'local.service',
+      'local.location',
+      'local.phone',
+      'local.hours',
+      'conversion.primary-action',
+      'conversion.path',
+      'conversion.value-proposition',
+      'conversion.trust'
+    ]);
+
+    return findings.map((item) => renderedContentRuleIds.has(item.id)
+      ? {
+          ...item,
+          status: 'not-applicable',
+          evidence: snapshot.rendering.evidence,
+          explanation: 'This rule depends on rendered page content that was not available to the static audit.',
+          recommendation: 'Run the audit with --render after installing Playwright.'
+        }
+      : item);
+  }
+
   return findings;
 }
 
@@ -493,17 +540,35 @@ export function scoreFindings(findings) {
   const scores = {};
 
   for (const category of Object.keys(CATEGORY_LABELS)) {
+    const categoryFindings = findings.filter((item) => item.category === category);
     const applicable = findings.filter((item) => item.category === category && item.status !== 'not-applicable');
+    const totalWeight = categoryFindings.reduce((sum, item) => sum + item.weight, 0);
     const possible = applicable.reduce((sum, item) => sum + item.weight, 0);
     const earned = applicable.reduce((sum, item) => {
       if (item.status === 'pass') return sum + item.weight;
       if (item.status === 'warning') return sum + item.weight * 0.5;
       return sum;
     }, 0);
-    scores[category] = possible === 0 ? null : Math.round((earned / possible) * 100);
+    const coverage = totalWeight === 0 ? 0 : possible / totalWeight;
+    scores[category] = possible === 0 || coverage < 0.5 ? null : Math.round((earned / possible) * 100);
   }
 
   return scores;
+}
+
+export function scoreCoverage(findings) {
+  const coverage = {};
+
+  for (const category of Object.keys(CATEGORY_LABELS)) {
+    const categoryFindings = findings.filter((item) => item.category === category);
+    const totalWeight = categoryFindings.reduce((sum, item) => sum + item.weight, 0);
+    const applicableWeight = categoryFindings
+      .filter((item) => item.status !== 'not-applicable')
+      .reduce((sum, item) => sum + item.weight, 0);
+    coverage[category] = totalWeight === 0 ? 0 : Math.round((applicableWeight / totalWeight) * 100);
+  }
+
+  return coverage;
 }
 
 export function selectTopActions(findings, limit = 3) {

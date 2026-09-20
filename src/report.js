@@ -11,8 +11,8 @@ function cleanInline(value) {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
 }
 
-function formatScore(value) {
-  return value === null ? 'N/A' : `${value} / 100`;
+function formatScore(value, coverage) {
+  return value === null ? `N/A (${coverage}% coverage)` : `${value} / 100 (${coverage}% coverage)`;
 }
 
 export function renderMarkdown(report) {
@@ -23,12 +23,13 @@ export function renderMarkdown(report) {
     `- Audited: ${report.audit.startedAt}`,
     `- Tool version: ${report.tool.version}`,
     `- Ruleset version: ${report.tool.rulesetVersion}`,
+    `- Rendering: ${report.rendering.mode} (${report.rendering.status})`,
     '',
     '## Scores',
     '',
-    `- Discoverability: **${formatScore(report.scores.discoverability)}**`,
-    `- Local relevance: **${formatScore(report.scores.localRelevance)}**`,
-    `- Conversion readiness: **${formatScore(report.scores.conversionReadiness)}**`,
+    `- Discoverability: **${formatScore(report.scores.discoverability, report.coverage.discoverability)}**`,
+    `- Local relevance: **${formatScore(report.scores.localRelevance, report.coverage.localRelevance)}**`,
+    `- Conversion readiness: **${formatScore(report.scores.conversionReadiness, report.coverage.conversionReadiness)}**`,
     '',
     '## Top actions',
     ''

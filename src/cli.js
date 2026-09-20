@@ -17,6 +17,7 @@ Options:
   --location <place>   Primary city or service area to look for
   --goal <goal>        call, booking, contact, quote, or visit
   --profile <file>     Load business context from a JSON file
+  --render             Render client-side JavaScript with Playwright
   --format <format>    markdown (default) or json
   --output <file>      Write the report to a file instead of stdout
   --help               Show this help
@@ -24,6 +25,7 @@ Options:
 
 Examples:
   autocoder-growth https://example.com --service plumbing --location Buffalo
+  autocoder-growth https://example.com --render --goal booking
   autocoder-growth https://example.com --profile examples/buffalo-plumber-profile.json
   autocoder-growth https://example.com --format json --output launch-check.json
 `;
@@ -45,7 +47,7 @@ function parseArguments(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
 
-    if (argument === '--help' || argument === '--version') {
+    if (argument === '--help' || argument === '--version' || argument === '--render') {
       options[argument.slice(2)] = true;
       continue;
     }
@@ -110,7 +112,7 @@ export async function runCli(argv) {
   }
 
   if (options.version) {
-    process.stdout.write('0.1.0\n');
+    process.stdout.write('0.1.1\n');
     return;
   }
 
@@ -133,7 +135,13 @@ export async function runCli(argv) {
 
   validateGoal(context.goal);
 
-  const report = await auditSite(url, { context });
+  let renderer;
+  if (options.render) {
+    const { renderWithPlaywright } = await import('./render.js');
+    renderer = renderWithPlaywright;
+  }
+
+  const report = await auditSite(url, { context, renderer });
   const rendered = options.format === 'json' ? renderJson(report) : renderMarkdown(report);
 
   if (options.output) {

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  detectClientRenderedShell,
   findTagContents,
   getInteractiveLabels,
   getJsonLd,
@@ -47,4 +48,16 @@ test('HTML helpers extract metadata and visible content', () => {
 
 test('getJsonLd parses structured data', () => {
   assert.equal(getJsonLd(HTML)[0]['@type'], 'Plumber');
+});
+
+test('detectClientRenderedShell identifies an empty application mount', () => {
+  const shell = '<!doctype html><html><head><script defer src="/app.js"></script></head><body><div id="root"><div id="loading"></div></div></body></html>';
+  const result = detectClientRenderedShell(shell);
+  assert.equal(result.detected, true);
+  assert.equal(result.hasAppMount, true);
+});
+
+test('detectClientRenderedShell does not flag server-rendered content', () => {
+  const result = detectClientRenderedShell(HTML);
+  assert.equal(result.detected, false);
 });

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { auditSite } from '../src/audit.js';
@@ -73,4 +74,53 @@ test('auditSite rejects an unsuccessful homepage response', async () => {
     }),
     /Homepage returned HTTP 404/
   );
+});
+
+test('auditSite detects a client-rendered shell and avoids body-content failures', async () => {
+  const shell = await readFile(new URL('./fixtures/juniper-brick-shell.html', import.meta.url), 'utf8');
+  const fetcher = async (input) => {
+    const url = new URL(input);
+    if (url.pathname === '/') {
+      return { url: url.toString(), status: 200, body: shell, headers: { 'content-type': 'text/html' } };
+    }
+    return { url: url.toString(), status: 200, body: shell, headers: { 'content-type': 'text/html' } };
+  };
+
+  const report = await auditSite('https://juniperbrick.example.test/', {
+    fetcher,
+    context: { service: 'farm-to-table restaurant', location: 'Buffalo', goal: 'booking' }
+  });
+
+  assert.equal(report.rendering.status, 'required');
+  assert.equal(report.findings.find((item) => item.id === 'local.location').status, 'not-applicable');
+  assert.equal(report.findings.find((item) => item.id === 'conversion.primary-action').status, 'not-applicable');
+  assert.equal(report.findings.find((item) => item.id === 'discoverability.robots').status, 'fail');
+  assert.equal(report.findings.find((item) => item.id === 'discoverability.sitemap').status, 'fail');
+  assert.equal(report.scores.localRelevance, null);
+  assert.equal(report.scores.conversionReadiness, null);
+  assert.ok(report.coverage.conversionReadiness < 50);
+});
+
+test('auditSite evaluates rendered HTML when a renderer is provided', async () => {
+  const shell = '<html><head><script src="/app.js"></script></head><body><div id="root"></div></body></html>';
+  const fetcher = async (input) => {
+    const url = new URL(input);
+    if (url.pathname === '/robots.txt') {
+      return { url: url.toString(), status: 200, body: 'User-agent: *\nAllow: /', headers: { 'content-type': 'text/plain' } };
+    }
+    if (url.pathname === '/sitemap.xml') {
+      return { url: url.toString(), status: 200, body: '<urlset></urlset>', headers: { 'content-type': 'application/xml' } };
+    }
+    return { url: url.toString(), status: 200, body: shell, headers: { 'content-type': 'text/html' } };
+  };
+
+  const report = await auditSite('https://example.test/', {
+    fetcher,
+    renderer: async (url) => ({ html: HTML, url }),
+    context: { service: 'plumbing', location: 'Buffalo', goal: 'quote' }
+  });
+
+  assert.equal(report.rendering.status, 'rendered');
+  assert.equal(report.findings.find((item) => item.id === 'local.location').status, 'pass');
+  assert.equal(report.findings.find((item) => item.id === 'conversion.primary-action').status, 'pass');
 });

@@ -3,8 +3,13 @@ import test from 'node:test';
 
 import { buildSnapshot, evaluateLaunchCheck, scoreFindings, selectTopActions } from '../src/rules.js';
 
-function resource(url, status, body = '') {
-  return { url, status, body, headers: { 'content-type': 'text/html' } };
+function resource(url, status, body = '', contentType) {
+  const inferredType = url.endsWith('/robots.txt')
+    ? 'text/plain'
+    : url.endsWith('.xml')
+      ? 'application/xml'
+      : 'text/html';
+  return { url, status, body, headers: { 'content-type': contentType ?? inferredType } };
 }
 
 const COMPLETE_HTML = `<!doctype html>
@@ -80,4 +85,40 @@ test('context-dependent checks are not applicable when context is omitted', () =
 
   assert.equal(findings.find((item) => item.id === 'local.service').status, 'not-applicable');
   assert.equal(findings.find((item) => item.id === 'local.location').status, 'not-applicable');
+});
+
+test('HTML fallback responses fail robots and sitemap validation', () => {
+  const fallback = '<!doctype html><html><body><div id="root"></div><script src="/app.js"></script></body></html>';
+  const homepage = resource('https://example.test/', 200, COMPLETE_HTML);
+  const findings = evaluateLaunchCheck(buildSnapshot({
+    html: COMPLETE_HTML,
+    homepage,
+    robots: resource('https://example.test/robots.txt', 200, fallback, 'text/html'),
+    sitemap: resource('https://example.test/sitemap.xml', 200, fallback, 'text/html'),
+    context: {}
+  }));
+
+  assert.equal(findings.find((item) => item.id === 'discoverability.robots').status, 'fail');
+  assert.match(findings.find((item) => item.id === 'discoverability.robots').evidence, /returned HTML/);
+  assert.equal(findings.find((item) => item.id === 'discoverability.sitemap').status, 'fail');
+});
+
+test('render-dependent checks become not applicable for an unrendered shell', () => {
+  const homepage = resource('https://example.test/', 200, '<html></html>');
+  const findings = evaluateLaunchCheck(buildSnapshot({
+    html: '<html></html>',
+    homepage,
+    robots: resource('https://example.test/robots.txt', 200, 'User-agent: *\nAllow: /'),
+    sitemap: resource('https://example.test/sitemap.xml', 200, '<urlset></urlset>'),
+    context: { service: 'restaurant', location: 'Buffalo', goal: 'booking' },
+    rendering: {
+      status: 'required',
+      evidence: 'A client-rendered shell was detected.'
+    }
+  }));
+
+  assert.equal(findings.find((item) => item.id === 'discoverability.primary-heading').status, 'not-applicable');
+  assert.equal(findings.find((item) => item.id === 'local.location').status, 'not-applicable');
+  assert.equal(findings.find((item) => item.id === 'conversion.primary-action').status, 'not-applicable');
+  assert.equal(findings.find((item) => item.id === 'discoverability.title').status, 'fail');
 });

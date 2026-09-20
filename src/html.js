@@ -76,6 +76,30 @@ export function getVisibleText(html) {
   return stripTags(withoutHiddenContent);
 }
 
+export function detectClientRenderedShell(html) {
+  const visibleText = getVisibleText(html);
+  const scriptCount = findTags(html, 'script').length;
+  const hasAppMount = /<div\b[^>]*\bid=["'](?:root|app|__next|__nuxt)["'][^>]*>/i.test(html);
+  const meaningfulElements = [
+    ...findTagContents(html, 'h1'),
+    ...findTagContents(html, 'h2'),
+    ...findTagContents(html, 'main'),
+    ...findTagContents(html, 'article')
+  ].filter((value) => value.length >= 20);
+
+  const detected = hasAppMount && scriptCount > 0 && visibleText.length < 200 && meaningfulElements.length === 0;
+  return {
+    detected,
+    evidence: detected
+      ? `The initial HTML contains an application mount, ${scriptCount} script tags, and only ${visibleText.length} visible-text characters.`
+      : `The initial HTML contains ${visibleText.length} visible-text characters and ${meaningfulElements.length} meaningful content elements.`,
+    hasAppMount,
+    meaningfulElementCount: meaningfulElements.length,
+    scriptCount,
+    visibleTextLength: visibleText.length
+  };
+}
+
 export function getInteractiveLabels(html) {
   const pattern = /<(a|button)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
   return [...html.matchAll(pattern)]

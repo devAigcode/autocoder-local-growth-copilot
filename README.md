@@ -94,6 +94,27 @@ node ./bin/autocoder-growth.js https://example.com \
 
 Run `node ./bin/autocoder-growth.js --help` for all options.
 
+### Client-rendered websites
+
+Launch Check detects empty application shells produced by client-side frameworks. In static mode, rules that require rendered body content return `not-applicable` instead of producing false failures. A category score becomes `N/A` when less than 50% of its weighted evidence is available.
+
+To audit the rendered DOM, install the optional browser dependency:
+
+```bash
+npm install playwright
+npx playwright install chromium
+```
+
+Then add `--render`:
+
+```bash
+node ./bin/autocoder-growth.js https://example.com \
+  --profile examples/restaurant/juniper-brick-profile.json \
+  --render
+```
+
+The [`Juniper Brick restaurant example`](examples/restaurant/README.md) demonstrates both modes on a fictional client-rendered website.
+
 ## Current checks
 
 Launch Check currently runs 16 transparent rules across three categories:
@@ -112,10 +133,13 @@ The current implementation:
 - rejects URLs containing credentials;
 - blocks local, private, link-local, reserved, and non-public IP destinations;
 - revalidates redirect destinations;
+- validates browser requests before allowing them in render mode;
 - applies request timeouts, redirect limits, and response-size limits;
 - identifies itself with a documented user agent;
 - reads public pages without submitting forms or activating controls;
 - inspects only the homepage, `robots.txt`, and one sitemap candidate.
+
+The tool validates the content of `robots.txt` and `sitemap.xml`. An HTTP 200 response containing an HTML application fallback is reported as invalid rather than treated as a valid crawler resource.
 
 Treat every report as diagnostic guidance. A passing score does not guarantee search visibility or business performance, and a failed heuristic should be reviewed in its page context.
 

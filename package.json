@@ -1,0 +1,37 @@
+{
+  "name": "@autocoder/local-growth-copilot",
+  "version": "0.1.0",
+  "description": "Evidence-based launch checks for local business websites.",
+  "type": "module",
+  "bin": {
+    "autocoder-growth": "./bin/autocoder-growth.js"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "check": "node --check bin/autocoder-growth.js && node --check src/cli.js && node --check src/audit.js && node --check src/fetch.js && node --check src/html.js && node --check src/rules.js && node --check src/report.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "local-seo",
+    "seo-audit",
+    "local-business",
+    "website-audit",
+    "growth"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/devAigcode/autocoder-local-growth-copilot.git"
+  }
+}

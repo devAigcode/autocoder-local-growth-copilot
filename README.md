@@ -19,9 +19,9 @@ Publishing a website is only the beginning. A local business still needs to answ
 
 Most SEO tools identify hundreds of issues without explaining what matters first. Growth Copilot focuses on a short, prioritized path from finding a problem to shipping an improvement.
 
-## What it will do
+## What it does
 
-The first release will provide a **Launch Check** for local business websites. It will inspect a public URL and generate:
+The first usable release provides a read-only **Launch Check** for local business websites. It inspects a public URL and generates:
 
 - a discoverability score;
 - a local relevance score;
@@ -30,7 +30,7 @@ The first release will provide a **Launch Check** for local business websites. I
 - the three highest-priority actions;
 - human-readable Markdown and machine-readable JSON reports.
 
-Initial checks will cover:
+The current rules cover:
 
 - page titles, meta descriptions, headings, canonical URLs, and indexability;
 - `robots.txt` and `sitemap.xml` availability;
@@ -56,6 +56,68 @@ Top actions
 ```
 
 The exact scoring model is still being developed. Every score will be traceable to documented, testable rules.
+
+## Quick start
+
+Requirements: Node.js 20 or newer.
+
+```bash
+git clone https://github.com/devAigcode/autocoder-local-growth-copilot.git
+cd autocoder-local-growth-copilot
+npm test
+```
+
+Run a Launch Check directly from the repository:
+
+```bash
+node ./bin/autocoder-growth.js https://example.com \
+  --business "North Star Plumbing" \
+  --service "plumbing" \
+  --location "Buffalo" \
+  --goal quote
+```
+
+Use the included fictional profile:
+
+```bash
+node ./bin/autocoder-growth.js https://example.com \
+  --profile examples/buffalo-plumber-profile.json
+```
+
+Generate a machine-readable report:
+
+```bash
+node ./bin/autocoder-growth.js https://example.com \
+  --format json \
+  --output launch-check.json
+```
+
+Run `node ./bin/autocoder-growth.js --help` for all options.
+
+## Current checks
+
+Launch Check currently runs 16 transparent rules across three categories:
+
+- **Discoverability:** title, meta description, primary heading, indexability, canonical URL, crawler access, and XML sitemap.
+- **Local relevance:** local business structured data, service and location visibility, public phone number, and opening hours.
+- **Conversion readiness:** primary action, reachable conversion path, mobile viewport, opening value proposition, and trust information.
+
+Rules return `pass`, `warning`, `fail`, or `not-applicable`. Context-dependent checks do not affect the score when the relevant context was not provided.
+
+## Safety and scope
+
+The current implementation:
+
+- accepts only HTTP and HTTPS URLs;
+- rejects URLs containing credentials;
+- blocks local, private, link-local, reserved, and non-public IP destinations;
+- revalidates redirect destinations;
+- applies request timeouts, redirect limits, and response-size limits;
+- identifies itself with a documented user agent;
+- reads public pages without submitting forms or activating controls;
+- inspects only the homepage, `robots.txt`, and one sitemap candidate.
+
+Treat every report as diagnostic guidance. A passing score does not guarantee search visibility or business performance, and a failed heuristic should be reviewed in its page context.
 
 ## Product principles
 
@@ -95,19 +157,21 @@ Reviewable website improvements
 
 ## Project status
 
-This repository is in early development. The product specification is available in [`docs/PRD.md`](docs/PRD.md), and the first implementation milestone is a read-only Launch Check.
+This repository is in early development. A usable, read-only Launch Check is available now, with no runtime dependencies. The public product specification is available in [`docs/PRD.md`](docs/PRD.md).
 
-There is no production-ready package or command-line interface yet. Command examples will be added only after the interface is implemented and tested.
+The command-line interface is an early release and may change before the first stable package release. It has been tested with Node.js 20 and newer.
 
 ## Roadmap
 
-### v0.1 — Read-only Launch Check
+### v0.1 — Read-only Launch Check (current)
 
-- Fetch and inspect a public website.
-- Run transparent, testable audit rules.
-- Produce prioritized Markdown and JSON reports.
-- Include example profiles for restaurant, salon, and home-service businesses.
-- Add automated tests and documentation for every rule.
+- [x] Fetch and inspect a public website safely.
+- [x] Run transparent, testable audit rules.
+- [x] Produce prioritized Markdown and JSON reports.
+- [x] Include an initial fictional home-service profile.
+- [x] Add automated tests for the audit, rules, parser, reports, and URL safety.
+- [ ] Add fictional restaurant and salon fixtures.
+- [ ] Publish detailed documentation for every rule and scoring weight.
 
 ### v0.2 — Reviewable recommendations
 
@@ -126,28 +190,30 @@ Roadmap items describe direction, not release commitments.
 
 ## Repository layout
 
-The planned structure is:
+The current structure is:
 
 ```text
 .
 ├── README.md
-├── SKILL.md
+├── bin/
+│   └── autocoder-growth.js
 ├── docs/
-│   ├── PRD.md
-│   └── growth-pack-spec.md
+│   └── PRD.md
 ├── src/
-│   ├── audit/
-│   ├── rules/
-│   └── report/
+│   ├── audit.js
+│   ├── cli.js
+│   ├── fetch.js
+│   ├── html.js
+│   ├── report.js
+│   └── rules.js
 ├── examples/
-│   ├── restaurant/
-│   ├── salon/
-│   └── home-services/
-├── tests/
+│   └── buffalo-plumber-profile.json
+├── test/
+├── package.json
 └── .github/
 ```
 
-Only implemented components will be added to the repository. This layout may evolve as the first release is built.
+This layout may evolve as additional audit surfaces and Growth Packs are implemented.
 
 ## Contributing
 

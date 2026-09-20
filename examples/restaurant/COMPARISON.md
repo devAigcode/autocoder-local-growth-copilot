@@ -4,9 +4,9 @@ This document tracks the fictional restaurant example before and after its growt
 
 | Category | Before | After | Change |
 |---|---:|---:|---:|
-| Discoverability | 50 | Pending | Pending |
-| Local relevance | 75 | Pending | Pending |
-| Conversion readiness | 65 | Pending | Pending |
+| Discoverability | 50 | 50 | 0 |
+| Local relevance | 75 | 100 | +25 |
+| Conversion readiness | 65 | 100 | +35 |
 
 ## Before
 
@@ -17,13 +17,11 @@ This document tracks the fictional restaurant example before and after its growt
 
 ## After
 
-The optimized deployment has not been generated yet. When it is available, add:
+- Live URL: https://juniperbrick.autocoder.store/
+- Report: [`reports/after.md`](reports/after.md)
+- Structured summary: [`reports/after-summary.json`](reports/after-summary.json)
+- Evidence coverage: 100% in all categories
 
-- the new public URL;
-- a browser-rendered Markdown report;
-- a normalized JSON summary;
-- exact score changes;
-- resolved and remaining findings;
-- a deterministic rendered fixture and Golden Test.
+The project was optimized in place, so the live URL now represents the after state. The original before state remains reproducible through the stored report, normalized fixture, and Golden Test.
 
-The original deployment should remain unchanged so the comparison can be reproduced manually.
+Local relevance and conversion readiness reached 100. Discoverability remained at 50 because production metadata and crawler resource routes were not successfully deployed. Use [`AUTOCODER_DISCOVERABILITY_FOLLOWUP.md`](AUTOCODER_DISCOVERABILITY_FOLLOWUP.md) for the remaining work.

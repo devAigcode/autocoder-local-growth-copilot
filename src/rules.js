@@ -491,7 +491,7 @@ export function evaluateLaunchCheck(snapshot) {
     url
   }));
 
-  const trustMatches = visibleText.match(/\b(review|testimonial|rated|rating|licensed|insured|certified|guarantee|years? of experience)\b/gi) ?? [];
+  const trustMatches = visibleText.match(/\b(reviews?|testimonials?|rated|ratings?|licensed|insured|certified|guarantees?|years? of experience)\b/gi) ?? [];
   findings.push(finding({
     id: 'conversion.trust',
     category: 'conversionReadiness',

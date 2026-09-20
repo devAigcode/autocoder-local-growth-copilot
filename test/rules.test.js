@@ -122,3 +122,17 @@ test('render-dependent checks become not applicable for an unrendered shell', ()
   assert.equal(findings.find((item) => item.id === 'conversion.primary-action').status, 'not-applicable');
   assert.equal(findings.find((item) => item.id === 'discoverability.title').status, 'fail');
 });
+
+test('plural review language is recognized as trust information', () => {
+  const html = '<html><head><title>Restaurant in Buffalo</title></head><body><h1>Seasonal dining in Buffalo</h1><h2>Guest Reviews</h2><a href="/book">Book a Table</a></body></html>';
+  const homepage = resource('https://example.test/', 200, html);
+  const findings = evaluateLaunchCheck(buildSnapshot({
+    html,
+    homepage,
+    robots: resource('https://example.test/robots.txt', 200, 'User-agent: *\nAllow: /'),
+    sitemap: resource('https://example.test/sitemap.xml', 200, '<urlset></urlset>'),
+    context: { goal: 'booking' }
+  }));
+
+  assert.equal(findings.find((item) => item.id === 'conversion.trust').status, 'pass');
+});
